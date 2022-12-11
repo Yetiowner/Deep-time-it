@@ -1,4 +1,4 @@
-import deep_timeit
+from deep_timeit import deep_timeit
 import random
 import time
 

@@ -14,6 +14,11 @@ Run `deep_timeit.deepTimeit(function)`, and replace `function` with a reference 
 ## Release notes
 TODO
 
+## Similar libraries
+- timeit
+- line_profiler
+- pprofile
+
 ## TODO's
 Make code work with functions that have:
 - globals
