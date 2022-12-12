@@ -31,7 +31,6 @@ class Info():
         mintime = 0
         maxtime = max(self.times, key=lambda x: x.time).time
         for index, timeset in enumerate(self.times):
-            print(timeset)
             rgb = colorsys.hsv_to_rgb(((1-timeset.time/maxtime) if maxtime > (mintimetotrigger if mintimetotrigger else 0) else 1) / 3., 1.0, 1.0)
             col = [round(255*x) for x in rgb]
             Output.tag_config(index, background=rgb_to_hex(col))
