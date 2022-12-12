@@ -2,4 +2,21 @@
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools_scm]
+[project]
+name = "deep_timeit"
+version = "0.1"
+authors = [
+  { name="Oliver Gibson", email="ojrgibson@perse.co.uk" },
+]
+description = "A package that allows timing of each individual line of code in a function, and produces a colour-coded output"
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Yetiowner/Deep-time-it"
+"Bug Tracker" = "https://github.com/Yetiowner/Deep-time-it/issues"
