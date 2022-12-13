@@ -68,15 +68,23 @@ class Info():
             setCol(Output, timeset, tagid, self.lines)
             Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output, tagtype="removed"))
             Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output, tagtype="removed"))
+        for index, timeset in enumerate(self.unabletobetimed):
+            col = (255, 0, 255)
+            tagid = str(index)+"g"
+            Output.tag_config(tagid, background=rgb_to_hex(col))
+            Output.tag_config(tagid+"a", background=rgb_to_hex(scale_lightness(col, 0.7)))
+            setCol(Output, timeset, tagid, self.lines)
+            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output, tagtype="unable"))
+            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output, tagtype="unable"))
         Output.config(state=tkinter.DISABLED)
         Output.pack()
         tkinter.mainloop()
     
     def enter(self, event, id, Output, tagtype="timed"):
-        setCol(Output, (self.times if tagtype == "timed" else self.removed)[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines)
+        setCol(Output, (self.times if tagtype == "timed" else (self.removed if tagtype == "removed" else self.unabletobetimed))[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines)
     
     def leave(self, event, id, Output, tagtype="timed"):
-        setCol(Output, (self.times if tagtype == "timed" else self.removed)[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines, remove=True)
+        setCol(Output, (self.times if tagtype == "timed" else (self.removed if tagtype == "removed" else self.unabletobetimed))[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines, remove=True)
 
 def scale_lightness(rgb, scale_l):
     rgb = [i/255 for i in rgb]
@@ -129,7 +137,6 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
     needsToRedo = True
     ignores = []
     removedChunks = []
-    unableTimes = []
 
     while needsToRedo:
         lines = copy.deepcopy(oldlines)
@@ -223,6 +230,12 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
                     ignores.append(i)
         else:
             needsToRedo = False
+    
+    unableLines = []
+    for index, line in enumerate(oldlines):
+        if unabletotime(line):
+            unableLines.append([[index], index])
+
     alltimes = []
     alltimes.append(Time([-1], len(oldlines), totaltime, "", getIndentation(oldlines[0])))
     for timex in times:
@@ -231,14 +244,22 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
     removedTimes = []
     for chunk in removedChunks:
         removedTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), None if chunk[0] == chunk[1] else getIndentation(oldlines[firstifint(chunk[0])+1])))
+
+    unableTimes = []
+    for chunk in unableLines:
+        unableTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), None))
     
-    print(unableTimes)
     
     infoobj = Info([oldstart]+oldlines, alltimes, removedTimes, unableTimes)
     if show:
         infoobj.show(mintime)
     else:
         return infoobj
+
+def unabletotime(line):
+    if line.lstrip() == "return" or line.lstrip().startswith("return "):
+        return True
+    return False
 
 def firstifint(a):
     if type(a) == list:
@@ -330,6 +351,6 @@ def factorial(a, b, extraadd = True):
                     x += random.randint(1, 100)
     return t
 
-#deepTimeit(deepTimeit, args=[deepTimeit], kwargs={"args":[factorial], "kwargs":{"args":[5, 5]}})
-deepTimeit(deepTimeit, args=[factorial], kwargs={"args":[5, 5]})
+deepTimeit(deepTimeit, args=[deepTimeit], kwargs={"args":[factorial], "kwargs":{"args":[5, 5]}})
+#deepTimeit(deepTimeit, args=[factorial], kwargs={"args":[5, 5]})
 #deepTimeit(factorial, args=[5, 5])
