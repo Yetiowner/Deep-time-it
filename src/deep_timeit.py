@@ -25,10 +25,11 @@ class Time():
         return str([self.start, self.end, self.time, self.indentation, self.nextindentation])
 
 class Info():
-    def __init__(self, lines, times, removed):
+    def __init__(self, lines, times, removed, unabletobetimed):
         self.lines = lines
         self.times = times
         self.removed = removed
+        self.unabletobetimed = unabletobetimed
     
     def show(self, mintimetotrigger=None):
         MAXX = 100
@@ -53,23 +54,51 @@ class Info():
         for index, timeset in enumerate(self.times):
             rgb = colorsys.hsv_to_rgb(((1-timeset.time/maxtime) if maxtime > (mintimetotrigger if mintimetotrigger else 0) else 1) / 3., 1.0, 1.0)
             col = [round(255*x) for x in rgb]
-            Output.tag_config(index, background=rgb_to_hex(col))
-            setCol(Output, timeset, index, self.lines)
-        Output.tag_config("failed", background="#00FFFF")
+            tagid = index
+            Output.tag_config(tagid, background=rgb_to_hex(col))
+            Output.tag_config(str(tagid)+"a", background=rgb_to_hex(scale_lightness(col, 0.7)))
+            setCol(Output, timeset, tagid, self.lines)
+            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output))
+            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output))
         for index, timeset in enumerate(self.removed):
-            setCol(Output, timeset, "failed", self.lines)
+            col = (0, 255, 255)
+            tagid = str(index)+"f"
+            Output.tag_config(tagid, background=rgb_to_hex(col))
+            Output.tag_config(tagid+"a", background=rgb_to_hex(scale_lightness(col, 0.7)))
+            setCol(Output, timeset, tagid, self.lines)
+            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output, tagtype="removed"))
+            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output, tagtype="removed"))
         Output.config(state=tkinter.DISABLED)
         Output.pack()
         tkinter.mainloop()
+    
+    def enter(self, event, id, Output, tagtype="timed"):
+        setCol(Output, (self.times if tagtype == "timed" else self.removed)[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines)
+    
+    def leave(self, event, id, Output, tagtype="timed"):
+        setCol(Output, (self.times if tagtype == "timed" else self.removed)[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines, remove=True)
 
-def setCol(Output, timeset, index, lines):
+def scale_lightness(rgb, scale_l):
+    rgb = [i/255 for i in rgb]
+    # convert rgb to hls
+    h, l, s = colorsys.rgb_to_hls(*rgb)
+    # manipulate h, l, s values and return as rgb
+    return [round(i*255) for i in colorsys.hls_to_rgb(h, min(1, l * scale_l), s = s)]
+
+def setCol(Output, timeset, tag, lines, remove=False):
     timesetstart = timeset.start
     if type(timesetstart) == int:
         timesetstart = [timesetstart]
     for start in timesetstart:
-        Output.tag_add(index, f'{start+1}.0+{timeset.indentation}c', f'{start+1}.0+{len(lines[start])}c')
+        if remove:
+            Output.tag_remove(tag, f'{start+1}.0+{timeset.indentation}c', f'{start+1}.0+{len(lines[start])}c')
+        else:
+            Output.tag_add(tag, f'{start+1}.0+{timeset.indentation}c', f'{start+1}.0+{len(lines[start])}c')
     for endpos in range(timesetstart[0]+1, timeset.end+1):
-        Output.tag_add(index, f'{endpos+1}.0+{timeset.indentation}c', f'{endpos+1}.0+{timeset.nextindentation}c')
+        if remove:
+            Output.tag_remove(tag, f'{endpos+1}.0+{timeset.indentation}c', f'{endpos+1}.0+{timeset.nextindentation}c')
+        else:
+            Output.tag_add(tag, f'{endpos+1}.0+{timeset.indentation}c', f'{endpos+1}.0+{timeset.nextindentation}c')
 
 def rgb_to_hex(rgb):
     return matplotlib.colors.to_hex([i/255 for i in rgb])
@@ -100,6 +129,7 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
     needsToRedo = True
     ignores = []
     removedChunks = []
+    unableTimes = []
 
     while needsToRedo:
         lines = copy.deepcopy(oldlines)
@@ -154,9 +184,9 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
             if newline.lstrip().startswith("return"):
                 if newline.lstrip().startswith("return "):
                     newlines[newlineindex] += f", {alltimesvar}, {allcountsvar}"
-                else:
+                elif newline.lstrip() == "return":
                     newlines[newlineindex] += f" {alltimesvar}, {allcountsvar}"
-            else:
+            elif newlineindex == len(newlines)-1:
                 newlines.append(f"{getIndentation(lines[1])}return {alltimesvar}, {allcountsvar}")
 
         
@@ -202,7 +232,9 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
     for chunk in removedChunks:
         removedTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), None if chunk[0] == chunk[1] else getIndentation(oldlines[firstifint(chunk[0])+1])))
     
-    infoobj = Info([oldstart]+oldlines, alltimes, removedTimes)
+    print(unableTimes)
+    
+    infoobj = Info([oldstart]+oldlines, alltimes, removedTimes, unableTimes)
     if show:
         infoobj.show(mintime)
     else:
@@ -298,5 +330,6 @@ def factorial(a, b, extraadd = True):
                     x += random.randint(1, 100)
     return t
 
+#deepTimeit(deepTimeit, args=[deepTimeit], kwargs={"args":[factorial], "kwargs":{"args":[5, 5]}})
 deepTimeit(deepTimeit, args=[factorial], kwargs={"args":[5, 5]})
 #deepTimeit(factorial, args=[5, 5])
