@@ -10,7 +10,13 @@ CHUNK_ADJACENCIES = {"if ": ["elif ", "else:"], "try:": ["except ", "except:", "
 class Time():
     def __init__(self, start, end, time, indentation, nextindentation=None):
         self.start = start
+        if type(self.start) == list:
+            for index, x in enumerate(self.start):
+                self.start[index] = x+1
+        else:
+            self.start += 1
         self.end = end
+        self.end += 1
         self.time = time
         self.indentation = len(indentation)
         self.nextindentation = len(nextindentation) if nextindentation else nextindentation
@@ -41,7 +47,7 @@ class Info():
         scroll_v.config(command = Output.yview)
 
         for index, line in enumerate(self.lines):
-            Output.insert(tkinter.INSERT, line+("\n" if index != len(self.lines)-1 else ""))
+            Output.insert(tkinter.INSERT, line.ljust(max([len(i) for i in self.lines]))+("\n" if index != len(self.lines)-1 else ""))
         mintime = 0
         maxtime = max(self.times, key=lambda x: x.time).time
         for index, timeset in enumerate(self.times):
@@ -57,8 +63,12 @@ class Info():
         tkinter.mainloop()
 
 def setCol(Output, timeset, index, lines):
-    Output.tag_add(index, f'{timeset.start+1}.0+{timeset.indentation}c', f'{timeset.start+1}.0+{len(lines[timeset.start])}c')
-    for endpos in range(timeset.start+1, timeset.end+1):
+    timesetstart = timeset.start
+    if type(timesetstart) == int:
+        timesetstart = [timesetstart]
+    for start in timesetstart:
+        Output.tag_add(index, f'{start+1}.0+{timeset.indentation}c', f'{start+1}.0+{len(lines[start])}c')
+    for endpos in range(timesetstart[0]+1, timeset.end+1):
         Output.tag_add(index, f'{endpos+1}.0+{timeset.indentation}c', f'{endpos+1}.0+{timeset.nextindentation}c')
 
 def rgb_to_hex(rgb):
@@ -118,7 +128,10 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
         for lineindex, line in enumerate(lines):
             starttimerstoadd = []
             for timerindex, i in enumerate(timedChunksIndices):
-                if lineindex == i[0]:
+                i_0tocheck = copy.deepcopy(i[0])
+                if type(i_0tocheck) == list:
+                    i_0tocheck = i_0tocheck[0]
+                if lineindex == i_0tocheck:
                     starttimerstoadd.append(timerindex)
             for start in starttimerstoadd:
                 newlines.append(getIndentation(line)+f"if {allcountsvar}[{start}] < {maxrepeats}:")
@@ -126,8 +139,11 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
             newlines.append(line)
             endtimerstoadd = []
             for timerindex, i in enumerate(timedChunksIndices):
+                i_0tocheck = copy.deepcopy(i[0])
+                if type(i_0tocheck) == list:
+                    i_0tocheck = i_0tocheck[0]
                 if lineindex == i[1]:
-                    endtimerstoadd.append([timerindex, getIndentation(lines[i[0]])])
+                    endtimerstoadd.append([timerindex, getIndentation(lines[i_0tocheck])])
             endtimerstoadd.sort(reverse=True, key=lambda x: x[0])
             for end, ind in endtimerstoadd:
                 newlines.append(ind+f"if {allcountsvar}[{end}] < {maxrepeats}:")
@@ -178,13 +194,13 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
         else:
             needsToRedo = False
     alltimes = []
-    alltimes.append(Time(0, len(oldlines), totaltime, "", getIndentation(oldlines[0])))
+    alltimes.append(Time([-1], len(oldlines), totaltime, "", getIndentation(oldlines[0])))
     for timex in times:
-        alltimes.append(Time(timedChunksIndices[timex][0]+1, timedChunksIndices[timex][1]+1, times[timex], getIndentation(oldlines[timedChunksIndices[timex][0]]), None if timedChunksIndices[timex][0]+1 == timedChunksIndices[timex][1]+1 else getIndentation(oldlines[timedChunksIndices[timex][0]+1])))
+        alltimes.append(Time(timedChunksIndices[timex][0], timedChunksIndices[timex][1], times[timex], getIndentation(oldlines[firstifint(timedChunksIndices[timex][0])]), None if timedChunksIndices[timex][0] == timedChunksIndices[timex][1] else getIndentation(oldlines[firstifint(timedChunksIndices[timex][0])+1])))
     
     removedTimes = []
     for chunk in removedChunks:
-        removedTimes.append(Time(chunk[0]+1, chunk[1]+1, None, getIndentation(oldlines[chunk[0]]), None if chunk[0]+1 == chunk[1]+1 else getIndentation(oldlines[chunk[0]+1])))
+        removedTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), None if chunk[0] == chunk[1] else getIndentation(oldlines[firstifint(chunk[0])+1])))
     
     infoobj = Info([oldstart]+oldlines, alltimes, removedTimes)
     if show:
@@ -192,7 +208,10 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
     else:
         return infoobj
 
-
+def firstifint(a):
+    if type(a) == list:
+        return a[0]
+    return a
 
 def getChunksToTime(lines):
     indices = []
@@ -202,7 +221,7 @@ def getChunksToTime(lines):
         lineindentation = getIndentation(line)
         nextlineindentation = getIndentation(lines[min(index+1, len(lines)-1)])
         if nextlineindentation <= lineindentation:
-            indices.append([index, index])
+            indices.append([[index], index])
         else:
             adjacentchunktitles = []
             for i in CHUNK_ADJACENCIES:
@@ -215,6 +234,7 @@ def getChunksToTime(lines):
             if shouldcont:
                 continue
             nextIndexWhereLEQ = len(lines)-1
+            startindex = [index]
             for newindex in range(index+1, len(lines)):
                 if getIndentation(lines[newindex]) <= lineindentation:
                     partofadjacent = False
@@ -228,11 +248,13 @@ def getChunksToTime(lines):
                                 oneofadjacent = True
                         if not(oneofadjacent):
                             nextIndexWhereLEQ = newindex-1
-                            break    
+                            break
+                        else:
+                            startindex.append(newindex)
                     else:
                         nextIndexWhereLEQ = newindex-1
                         break
-            indices.append([index, nextIndexWhereLEQ])
+            indices.append([startindex, nextIndexWhereLEQ])
     
     return indices
 
