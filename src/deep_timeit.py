@@ -4,11 +4,25 @@ import copy
 import tkinter
 import colorsys
 import matplotlib
+from typing import Optional, Tuple, Union
+
 
 CHUNK_ADJACENCIES = {"if ": ["elif ", "else:"], "try:": ["except ", "except:", "finally:"]}
 
+class Colour():
+    def __init__(self, r, g, b):
+        self.rgb = (r, g, b)
+    def __getitem__(self, key):
+        return self.rgb[key]
+
+class ColourRange():
+    def __init__(self, slow: Union[Tuple[int, int, int], Colour], medium: Union[Tuple[int, int, int], Colour], fast: Union[Tuple[int, int, int], Colour]):
+        self.slow = slow
+        self.medium = medium
+        self.fast = fast
+
 class Time():
-    def __init__(self, start, end, time, indentation, nextindentation=None):
+    def __init__(self, start, end, time, indentation, timesrun, nextindentation=None):
         self.start = start
         if type(self.start) == list:
             for index, x in enumerate(self.start):
@@ -19,6 +33,7 @@ class Time():
         self.end += 1
         self.time = time
         self.indentation = len(indentation)
+        self.timesrun = timesrun
         self.nextindentation = len(nextindentation) if nextindentation else nextindentation
     
     def __repr__(self):
@@ -31,18 +46,23 @@ class Info():
         self.removed = removed
         self.unabletobetimed = unabletobetimed
     
-    def show(self, mintimetotrigger=None):
-        MAXX = 100
-        MAXY = 30
+    def show(self, mintimetotrigger: Optional[int] = None, minsizeofdisplay: Tuple[int, int] = (30, 10), maxsizeofdisplay: Tuple[int, int] = (100, 30), xsizeofinfo: int = 30, colourrange: ColourRange = ColourRange(Colour(255, 0, 0), Colour(255, 255, 0), Colour(0, 255, 0)), textcolour: Union[Colour, Tuple[int, int, int]] = Colour(0, 0, 0), backgroundcolour: Union[Colour, Tuple[int, int, int]] = Colour(255, 255, 255)):
+        MAXX, MAXY = maxsizeofdisplay
+        MINX, MINY = minsizeofdisplay
+        INFOXSIZE = xsizeofinfo
         root = tkinter.Tk()
-        root.title(" Function display ")
+        root.title("Function display")
 
         scroll_v = tkinter.Scrollbar(root)
         scroll_v.pack(side = tkinter.RIGHT, fill = "y")
         scroll_h = tkinter.Scrollbar(root, orient = tkinter.HORIZONTAL)
         scroll_h.pack(side = tkinter.BOTTOM, fill = "x")
 
-        Output = tkinter.Text(root, width = min(MAXX, max([len(i) for i in self.lines])), height = min(MAXY, len(self.lines)), yscrollcommand = scroll_v.set, xscrollcommand = scroll_h.set, wrap = tkinter.NONE)
+        Output = tkinter.Text(root, width = max(min(MAXX, max([len(i) for i in self.lines])), MINX), height = max(min(MAXY, len(self.lines)), MINY), yscrollcommand = scroll_v.set, xscrollcommand = scroll_h.set, wrap = tkinter.NONE, bg=tohex(backgroundcolour.rgb if type(backgroundcolour) == Colour else backgroundcolour), fg=tohex(textcolour.rgb if type(textcolour) == Colour else textcolour))
+        Info = tkinter.Text(root, width = INFOXSIZE, height = max(min(MAXY, len(self.lines)), MINY), bg=tohex(backgroundcolour.rgb if type(backgroundcolour) == Colour else backgroundcolour), fg=tohex(textcolour.rgb if type(textcolour) == Colour else textcolour))
+        
+        Output.pack(side=tkinter.LEFT)
+        Info.pack(side=tkinter.RIGHT)
 
         scroll_h.config(command = Output.xview)
         scroll_v.config(command = Output.yview)
@@ -52,39 +72,113 @@ class Info():
         mintime = 0
         maxtime = max(self.times, key=lambda x: x.time).time
         for index, timeset in enumerate(self.times):
-            rgb = colorsys.hsv_to_rgb(((1-timeset.time/maxtime) if maxtime > (mintimetotrigger if mintimetotrigger else 0) else 1) / 3., 1.0, 1.0)
-            col = [round(255*x) for x in rgb]
+            col = self.getColour((1-timeset.time/maxtime) if maxtime > (mintimetotrigger if mintimetotrigger else 0) else 1, colourrange)
             tagid = index
             Output.tag_config(tagid, background=rgb_to_hex(col))
             Output.tag_config(str(tagid)+"a", background=rgb_to_hex(scale_lightness(col, 0.7)))
             setCol(Output, timeset, tagid, self.lines)
-            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output))
-            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output))
+            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output, Info))
+            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output, Info))
         for index, timeset in enumerate(self.removed):
             col = (0, 255, 255)
             tagid = str(index)+"f"
             Output.tag_config(tagid, background=rgb_to_hex(col))
             Output.tag_config(tagid+"a", background=rgb_to_hex(scale_lightness(col, 0.7)))
             setCol(Output, timeset, tagid, self.lines)
-            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output, tagtype="removed"))
-            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output, tagtype="removed"))
+            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output, Info, tagtype="removed"))
+            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output, Info, tagtype="removed"))
         for index, timeset in enumerate(self.unabletobetimed):
             col = (255, 0, 255)
             tagid = str(index)+"g"
             Output.tag_config(tagid, background=rgb_to_hex(col))
             Output.tag_config(tagid+"a", background=rgb_to_hex(scale_lightness(col, 0.7)))
             setCol(Output, timeset, tagid, self.lines)
-            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output, tagtype="unable"))
-            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output, tagtype="unable"))
+            Output.tag_bind(tagid, "<Enter>", lambda event, id=tagid: self.enter(event, id, Output, Info, tagtype="unable"))
+            Output.tag_bind(tagid, "<Leave>", lambda event, id=tagid: self.leave(event, id, Output, Info, tagtype="unable"))
+
         Output.config(state=tkinter.DISABLED)
-        Output.pack()
+        Info.config(state=tkinter.DISABLED)
+
         tkinter.mainloop()
     
-    def enter(self, event, id, Output, tagtype="timed"):
-        setCol(Output, (self.times if tagtype == "timed" else (self.removed if tagtype == "removed" else self.unabletobetimed))[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines)
+    def getColour(self, val, range):
+        if val < 0.5:
+            val *= 2
+            start = range.slow
+            end = range.medium
+        else:
+            val -= 0.5
+            val *= 2
+            start = range.medium
+            end = range.fast
+        return (int(start[0]+(end[0]-start[0])*val), int(start[1]+(end[1]-start[1])*val), int(start[2]+(end[2]-start[2])*val))
     
-    def leave(self, event, id, Output, tagtype="timed"):
+    def enter(self, event, id, Output, Info, tagtype="timed"):
+        setCol(Output, (self.times if tagtype == "timed" else (self.removed if tagtype == "removed" else self.unabletobetimed))[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines)
+        info = self.getInfo(id)
+        Info.config(state=tkinter.NORMAL)
+        Info.delete('1.0', tkinter.END)
+        for line in info.split("\n"):
+            Info.insert(tkinter.INSERT, line+"\n")
+        Info.config(state=tkinter.DISABLED)
+    
+    def leave(self, event, id, Output, Info, tagtype="timed"):
         setCol(Output, (self.times if tagtype == "timed" else (self.removed if tagtype == "removed" else self.unabletobetimed))[(int(id[:-1]) if type(id) == str else id)], str(id)+"a", self.lines, remove=True)
+        Info.config(state=tkinter.NORMAL)
+        Info.delete('1.0', tkinter.END)
+        Info.config(state=tkinter.DISABLED)
+    
+    def getInfo(self, id):
+        if type(id) == int:
+            idtype = "normal"
+        elif id[-1] == "f":
+            idtype = "removed"
+        else:
+            idtype = "untimable"
+        timeobj = self.times[id] if idtype == "normal" else (self.removed[int(id[:-1])] if idtype == "removed" else self.unabletobetimed[int(id[:-1])])
+        timetaken = timeobj.time
+        timesrun = timeobj.timesrun
+        parent = self.getParent(timeobj)
+        info = f"""Info:
+
+Total time taken: {'Unknown' if timetaken == None else self.formatTime(timetaken)}
+Times run: {'Unknown' if timesrun == None else (timesrun if type(timesrun) == int else '>'+str(timesrun.maxval-1))}
+Time taken per hit: {'Unknown' if timetaken == None or timesrun == 0 else self.formatTime(timetaken/timesrun)}
+% of total time: {'Unknown' if timetaken == None or self.times[0].time == 0 else self.formatPercentage(timetaken/self.times[0].time*100)}
+% of parent time: {'Unknown' if timetaken == None or parent == None or parent.time == 0 else self.formatPercentage(timetaken/parent.time*100)}"""
+        return info
+    
+    def getParent(self, timeobj):
+        maxlinevalid = -1
+        maxvalid = None
+        for time in self.times:
+            if time.start[0] > maxlinevalid and time.end >= timeobj.end and time.start[0] < timeobj.start[0]:
+                maxlinevalid = time.start[0]
+                maxvalid = time
+        return maxvalid
+    
+    def formatTime(self, timetaken):
+        units = ["s", "ms", "μs", "ns", "ps"]
+        unitindex = 0
+        while timetaken < 0.1:
+            if unitindex == len(units)-1:
+                return "0s"
+            unitindex += 1
+            timetaken *= 1000
+        return f"{timetaken:.4g}{units[unitindex]}"
+    
+    def formatPercentage(self, percentage):
+        return f"{percentage:.4g}%"
+
+class MaxSize():
+    def __init__(self, maxval):
+        self.maxval = maxval
+
+def rgb2hex(r,g,b):
+    return "#{:02x}{:02x}{:02x}".format(r,g,b)
+
+def tohex(t):
+    return rgb2hex(*t)
 
 def scale_lightness(rgb, scale_l):
     rgb = [i/255 for i in rgb]
@@ -111,12 +205,11 @@ def setCol(Output, timeset, tag, lines, remove=False):
 def rgb_to_hex(rgb):
     return matplotlib.colors.to_hex([i/255 for i in rgb])
 
-def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None):
+def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> Info:
     alltimesvar = "dicttimes"
     allcountsvar = "dictcounts"
     allintervaledvar = "dictintervalled"
     linetimevar = "linetime"
-    maxrepeats = 100000
     lines = inspector.getsource(func).rstrip().split("\n")
     newlines = []
     for line in lines:
@@ -128,8 +221,7 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
         if validline:
             newlines.append(line)
     lines = newlines
-    caller_frame = inspector.stack()[1]
-    caller_module = inspector.getmodule(caller_frame[0])
+    caller_module = inspector.getmodule(func)
     start = lines[0]
     oldstart = copy.deepcopy(start)
     lines = lines[1:]
@@ -153,7 +245,7 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
         newlines.append(start)
         openbrace = "{"
         closebrace = "}"
-        firstlineindentation = getIndentation(lines[1])
+        firstlineindentation = getIndentation(lines[0])
         for var in [alltimesvar, allcountsvar, allintervaledvar]:
             newlines.append(firstlineindentation+f"{var} = {openbrace}{closebrace}")
             newlines.append(firstlineindentation+f"for i in range({len(timedChunksIndices)}):")
@@ -221,8 +313,11 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
         except TypeError:
             print(strtoexec)
             raise TypeError
-        maxx = max(counts.values())
-        if maxx == maxrepeats and reattempt:
+        try:
+            maxx = max(counts.values())
+        except ValueError:
+            break
+        if maxx == maxrepeats and maxrepeats != None:
             needsToRedo = True
             ignores = []
             for i in counts:
@@ -237,24 +332,21 @@ def deepTimeit(func, args=[], kwargs={}, reattempt=True, show=True, mintime=None
             unableLines.append([[index], index])
 
     alltimes = []
-    alltimes.append(Time([-1], len(oldlines), totaltime, "", getIndentation(oldlines[0])))
-    for timex in times:
-        alltimes.append(Time(timedChunksIndices[timex][0], timedChunksIndices[timex][1], times[timex], getIndentation(oldlines[firstifint(timedChunksIndices[timex][0])]), None if timedChunksIndices[timex][0] == timedChunksIndices[timex][1] else getIndentation(oldlines[firstifint(timedChunksIndices[timex][0])+1])))
+    alltimes.append(Time([-1], len(oldlines), totaltime, "", 1, getIndentation(oldlines[0])))
+    for index, timex in enumerate(times):
+        alltimes.append(Time(timedChunksIndices[timex][0], timedChunksIndices[timex][1], times[timex], getIndentation(oldlines[firstifint(timedChunksIndices[timex][0])]), counts[index], None if firstifint(timedChunksIndices[timex][0]) == timedChunksIndices[timex][1] else getIndentation(oldlines[firstifint(timedChunksIndices[timex][0])+1])))
     
     removedTimes = []
     for chunk in removedChunks:
-        removedTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), None if chunk[0] == chunk[1] else getIndentation(oldlines[firstifint(chunk[0])+1])))
+        removedTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), MaxSize(maxrepeats), None if firstifint(chunk[0]) == chunk[1] else getIndentation(oldlines[firstifint(chunk[0])+1])))
 
     unableTimes = []
     for chunk in unableLines:
-        unableTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), None))
+        unableTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), None, None))
     
     
     infoobj = Info([oldstart]+oldlines, alltimes, removedTimes, unableTimes)
-    if show:
-        infoobj.show(mintime)
-    else:
-        return infoobj
+    return infoobj
 
 def unabletotime(line):
     if line.lstrip() == "return" or line.lstrip().startswith("return "):
@@ -351,6 +443,11 @@ def factorial(a, b, extraadd = True):
                     x += random.randint(1, 100)
     return t
 
-deepTimeit(deepTimeit, args=[deepTimeit], kwargs={"args":[factorial], "kwargs":{"args":[5, 5]}})
+def smallFunction(x):
+    return x
+
+deepTimeit(deepTimeit, args=[deepTimeit], kwargs={"args":[factorial], "kwargs":{"args":[5, 5]}}).show(backgroundcolour=Colour(255, 0, 255), textcolour=Colour(0, 0, 255), colourrange=ColourRange((128, 128, 0), (128, 128, 128), (128, 128, 255)))
 #deepTimeit(deepTimeit, args=[factorial], kwargs={"args":[5, 5]})
-#deepTimeit(factorial, args=[5, 5])
+#deepTimeit(factorial, args=[5, 5], colourrange = ColourRange((255, 0, 0), (0, 255, 0), (0, 0, 255)))
+#deepTimeit(smallFunction, args=[5])
+#deepTimeit(__import__("random")._test)
