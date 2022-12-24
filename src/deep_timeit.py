@@ -5,6 +5,7 @@ import tkinter
 import colorsys
 import matplotlib
 from typing import Optional, Tuple, Union
+import timeit
 
 
 CHUNK_ADJACENCIES = {"if ": ["elif ", "else:"], "try:": ["except ", "except:", "finally:"]}
@@ -39,14 +40,50 @@ class Time():
     def __repr__(self):
         return str([self.start, self.end, self.time, self.indentation, self.nextindentation])
 
-class Info():
-    def __init__(self, lines, times, removed, unabletobetimed):
+class Info():   
+    def __init__(self, lines: list, times: Time, removed: Time, unabletobetimed: Time):
         self.lines = lines
         self.times = times
         self.removed = removed
         self.unabletobetimed = unabletobetimed
     
-    def show(self, mintimetotrigger: Optional[int] = None, minsizeofdisplay: Tuple[int, int] = (30, 10), maxsizeofdisplay: Tuple[int, int] = (100, 30), xsizeofinfo: int = 30, colourrange: ColourRange = ColourRange(Colour(255, 0, 0), Colour(255, 255, 0), Colour(0, 255, 0)), textcolour: Union[Colour, Tuple[int, int, int]] = Colour(0, 0, 0), backgroundcolour: Union[Colour, Tuple[int, int, int]] = Colour(255, 255, 255)):
+    def show(self, mintimetotrigger: Optional[float] = None, comparetopeer: bool = True, minsizeofdisplay: Tuple[int, int] = (30, 10), maxsizeofdisplay: Tuple[int, int] = (100, 30), xsizeofinfo: int = 30, colourrange: Union[ColourRange, Tuple[Tuple[int, int, int], Tuple[int, int, int], Tuple[int, int, int]]] = ColourRange(Colour(255, 0, 0), Colour(255, 255, 0), Colour(0, 255, 0)), textcolour: Union[Colour, Tuple[int, int, int]] = Colour(0, 0, 0), backgroundcolour: Union[Colour, Tuple[int, int, int]] = Colour(255, 255, 255)):
+        """Function that displays the info about the timed function. It produces a
+        tkinter window that allows hovering over the line, that can be customized by
+        the parameters.
+        
+        :param mintimetotrigger: Sets the minimum time the function has to take to 
+        trigger the colour coding. Should be None or a float. Set to None by default.
+
+        :param comparetopeer: If set to True, sets the time colour to the result of the
+        comparison between the most time consuming function within the scope of all 
+        lines of the same indentation, whereas if set to False it compares to the time
+        taken of the entire function. Set to True by default.
+
+        :param minsizeofdisplay: Sets the minimum size of the display, for example
+        if the function timed is very small, then the smallest the screen will become
+        is this parameter. Should be a tuple of integers.
+
+        :param maxsizeofdisplay: Same as above, except the largest the screen will
+        become is this parameter. Should also be a tuple of integers.
+
+        :param xsizeofinfo: Integer that sets the width of the information box to the
+        right of the display box.
+
+        :param colourrange: Parameter of either type ColourRange or a tuple of 3 rgb
+        colours in the form (r, g, b). Sets the range of colours that are displayed
+        depending on the speed of each line of code. The order of colours goes slow,
+        medium, and fast speed.
+
+        :param textcolour: The colour of the text displayed, of type Colour or an rgb
+        tuple.
+
+        :param backgroundcolour: The colour of the background of the text displayed,
+        of type Colour or an rgb tuple.
+        """
+        if type(colourrange) != ColourRange:
+            colourrange = ColourRange(*colourrange)
+
         MAXX, MAXY = maxsizeofdisplay
         MINX, MINY = minsizeofdisplay
         INFOXSIZE = xsizeofinfo
@@ -72,6 +109,8 @@ class Info():
         mintime = 0
         maxtime = max(self.times, key=lambda x: x.time).time
         for index, timeset in enumerate(self.times):
+            if comparetopeer:
+                maxtime = max([i for i in self.times if self.getParent(i) == self.getParent(timeset)], key=lambda x: x.time).time
             col = self.getColour((1-timeset.time/maxtime) if maxtime > (mintimetotrigger if mintimetotrigger else 0) else 1, colourrange)
             tagid = index
             Output.tag_config(tagid, background=rgb_to_hex(col))
@@ -205,6 +244,29 @@ def setCol(Output, timeset, tag, lines, remove=False):
 def rgb_to_hex(rgb):
     return matplotlib.colors.to_hex([i/255 for i in rgb])
 
+def simplify(lines):
+    newlines = []
+    for index, line in enumerate(lines):
+        validline = True
+        if line.lstrip() == "" and not ispartofmultilinestring(line, lines, index):
+            validline = False
+        if line.lstrip().startswith("#") and not ispartofmultilinestring(line, lines, index):
+            validline = False
+        if validline:
+            if "#" in partsNotInString(line, lines, index):
+                line = getUntilFirstCommentMarking(line, lines, index)
+            newlines.append(line)
+    return newlines
+
+def ispartofmultilinestring(line, lines, index):
+    return False
+
+def partsNotInString(line, lines, index):
+    return line
+
+def getUntilFirstCommentMarking(line, lines, index):
+    return line
+
 def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> Info:
     alltimesvar = "dicttimes"
     allcountsvar = "dictcounts"
@@ -212,15 +274,7 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> In
     linetimevar = "linetime"
     lines = inspector.getsource(func).rstrip().split("\n")
     newlines = []
-    for line in lines:
-        validline = True
-        if line.lstrip() == "":
-            validline = False
-        if line.lstrip().startswith("#"):
-            validline = False
-        if validline:
-            newlines.append(line)
-    lines = newlines
+    lines = simplify(lines)
     caller_module = inspector.getmodule(func)
     start = lines[0]
     oldstart = copy.deepcopy(start)
@@ -423,8 +477,12 @@ def factorial(a, b, extraadd = True):
     t = 1
     time.sleep(0.05)
     time.sleep(1/20)
+    """asdf
+    asdf
+    asdf # 12
+    fdsa"""
     try:
-        x = 1
+        x = 1 # asdf1
     except:
         y = 1
     #asdf
@@ -446,8 +504,43 @@ def factorial(a, b, extraadd = True):
 def smallFunction(x):
     return x
 
-deepTimeit(deepTimeit, args=[deepTimeit], kwargs={"args":[factorial], "kwargs":{"args":[5, 5]}}).show(backgroundcolour=Colour(255, 0, 255), textcolour=Colour(0, 0, 255), colourrange=ColourRange((128, 128, 0), (128, 128, 128), (128, 128, 255)))
-#deepTimeit(deepTimeit, args=[factorial], kwargs={"args":[5, 5]})
-#deepTimeit(factorial, args=[5, 5], colourrange = ColourRange((255, 0, 0), (0, 255, 0), (0, 0, 255)))
-#deepTimeit(smallFunction, args=[5])
-#deepTimeit(__import__("random")._test)
+def incrementalTime():
+    time.sleep(1) # Hmmm
+    time.sleep(2)
+    time.sleep(3)
+    time.sleep(4)
+    time.sleep(5)
+    time.sleep(6)
+    time.sleep(7)
+    time.sleep(8)
+    time.sleep(9)
+    time.sleep(10)
+    for i in range(1):
+        time.sleep(0.1)
+        time.sleep(0.2)
+        time.sleep(0.3)
+        time.sleep(0.4)
+        time.sleep(0.5)
+        time.sleep(0.6)
+        time.sleep(0.7)
+        time.sleep(0.8)
+        time.sleep(0.9)
+        time.sleep(1)
+        for j in range(1):
+            time.sleep(0.01)
+            time.sleep(0.02)
+            time.sleep(0.03)
+            time.sleep(0.04)
+            time.sleep(0.05)
+            time.sleep(0.06)
+            time.sleep(0.07)
+            time.sleep(0.08)
+            time.sleep(0.09)
+            time.sleep(0.1)
+
+#deepTimeit(deepTimeit, args=[deepTimeit], kwargs={"args":[factorial], "kwargs":{"args":[5, 5]}}).show(backgroundcolour=Colour(255, 0, 255), textcolour=Colour(0, 0, 255), colourrange=((128, 128, 0), (128, 128, 128), (128, 128, 255)))
+#deepTimeit(deepTimeit, args=[factorial], kwargs={"args":[1, 5]}).show()
+deepTimeit(factorial, args=[5, 5]).show()
+#deepTimeit(smallFunction, args=[5]).show()
+#deepTimeit(__import__("random")._test).show()
+#deepTimeit(incrementalTime).show()
