@@ -351,7 +351,10 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> In
     code can be repeated before it stops being timed. Can be
     set to None for no limit. This is useful for when the
     timing itself starts to take up a tangible amount of time, and
-    can negate this effect."""
+    can negate this effect. Note: if the limit is surpassed, the
+    function will be timed again, this time without timing that
+    chunk of code. This is risky if the code has side effects. If
+    set to None, the code never re-attempts timing."""
     alltimesvar = "dicttimes"
     allcountsvar = "dictcounts"
     allintervaledvar = "dictintervalled"
