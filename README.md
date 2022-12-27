@@ -2,7 +2,7 @@
 Deep time-it is an open source module that was intended to be an extension of the timeit library, that not only times a function, but can also time each individual line and chunk of code within it, and produce a visual break-down of the slower and faster parts to aid with debugging and refactoring.
 
 ## Important
-Be careful if your function that you are timing has side effects. If it does, then as sometimes the function may be run twice, the side effect might occur twice. To disable double running, set the `reattempt` flag to false.
+Be careful if your function that you are timing has side effects. If it does, then as sometimes the function may be run twice, the side effect might occur twice. To disable double running, set the `maxrepeats` flag to None.
 
 ## Installation
 To install the Deep time-it library, use `pip install deep_timeit`. The documentation can be found at TODO. We support Python versions 3.6 to 3.10.
