@@ -1,23 +1,18 @@
-import deep_timeit
-import random
-import time
+import os
+from os import listdir
+from os.path import isfile, join
 
-p = 1
+__location__ = os.path.realpath(
+    os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-def factorial(a, b, extraadd = True):
-    t = 1
-    time.sleep(0.05)
-    time.sleep(p/20)
-    for i in range(1, a*b):
-        t *= i
-        x = 0
-        y = 0
-        if extraadd:
-            for i in range(100000):
-                y += i
-                if i < 500:
-                    x += i
-                    x += random.randint(1, 100)
-    return t
+__location__ = join(__location__, "subtests")
 
-deep_timeit.deepTimeit(factorial, args=[5, 5], kwargs={"extraadd": True})
+onlyfiles = [f for f in listdir(__location__) if isfile(join(__location__, f))]
+
+for index, test in enumerate(onlyfiles):
+    print(f"Running test {index+1}:")
+    outcome = os.system(f"python {__location__}\\{test}")
+    if outcome == 2:
+        print("Test failed!")
+    else:
+        print("Test success!")

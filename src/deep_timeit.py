@@ -244,30 +244,114 @@ def setCol(Output, timeset, tag, lines, remove=False):
 def rgb_to_hex(rgb):
     return matplotlib.colors.to_hex([i/255 for i in rgb])
 
+def getAnnotatedFunction(lines):
+    importantmarkings = ['''"""''', """'''""", '"', "'", "#"]
+    markingdict = {i: False for i in importantmarkings}
+    delaycount = 0
+    markingindices = {i: [] for i in importantmarkings}
+    for lineindex, line in enumerate(lines):
+        for i in importantmarkings[2:]:
+            markingdict[i] = False
+        for charindex, char in enumerate(line):
+            if delaycount > 0:
+                delaycount -= 1
+            if delaycount > 0:
+                continue
+            foundmarking = None
+            activeindex = None
+            for index, marking in enumerate(importantmarkings):
+                if markingdict[marking] == True:
+                    activeindex = index
+
+            for marking in importantmarkings:
+                if itemsFoundAtPosition(marking, line, charindex) and (activeindex == None or activeindex == importantmarkings.index(marking)):
+                    foundmarking = marking
+                    break
+            if foundmarking != None:
+                if foundmarking == "#":
+                    valtosetto = True
+                else:
+                    valtosetto = not markingdict[foundmarking]
+                if not markingdict[foundmarking]:
+                    markingindices[foundmarking].append([(lineindex, charindex)])
+                    if foundmarking == "#":
+                        markingindices[foundmarking][-1].append((lineindex, len(line)-1))
+                elif foundmarking != "#":
+                    markingindices[foundmarking][-1].append((lineindex, charindex+len(foundmarking)-1))
+
+                markingdict[foundmarking] = valtosetto
+                delaycount = len(foundmarking)
+    return markingindices
+
+def itemsFoundAtPosition(marking, line, index):
+    same = True
+    for i in range(len(marking)):
+        try:
+            if line[index+i] != marking[i]:
+                same = False
+        except:
+            return False
+    return same
+
 def simplify(lines):
+    markingIndices = getAnnotatedFunction(lines)
+    for quotetype in ["'''", '"""']:
+        newlines = []
+        endlineindexofmultilinestring = None
+        shouldtruncateNext = False
+        for index, line in enumerate(lines):
+            if index in [i[0][0] for i in markingIndices[quotetype]]:
+                quotemarkingindex = [i[0][0] for i in markingIndices[quotetype]].index(index)
+                endlineindexofmultilinestring = markingIndices[quotetype][quotemarkingindex][1][0]
+            if shouldtruncateNext:
+                newlines[-1] += "\\n"+line
+            else:
+                newlines.append(line)
+            shouldtruncateNext = False
+            if endlineindexofmultilinestring != None:
+                if index == endlineindexofmultilinestring:
+                    shouldtruncateNext = False
+                    endlineindexofmultilinestring = None
+                else:
+                    shouldtruncateNext = True
+
+        lines = newlines
+    
+    markingIndices = getAnnotatedFunction(lines)
+
     newlines = []
     for index, line in enumerate(lines):
         validline = True
-        if line.lstrip() == "" and not ispartofmultilinestring(line, lines, index):
+        if line.lstrip() == "":
             validline = False
-        if line.lstrip().startswith("#") and not ispartofmultilinestring(line, lines, index):
+        if line.lstrip().startswith("#"):
             validline = False
         if validline:
-            if "#" in partsNotInString(line, lines, index):
-                line = getUntilFirstCommentMarking(line, lines, index)
-            newlines.append(line)
+            if index in [i[0][0] for i in markingIndices["#"]]:
+                commentmarkingindex = [i[0][0] for i in markingIndices["#"]].index(index)
+                commentmarkingstart = markingIndices["#"][commentmarkingindex][0][1]
+                line = line[:commentmarkingstart]
+            if line.lstrip() != "":
+                newlines.append(line)
     return newlines
 
-def ispartofmultilinestring(line, lines, index):
-    return False
-
-def partsNotInString(line, lines, index):
-    return line
-
-def getUntilFirstCommentMarking(line, lines, index):
-    return line
 
 def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> Info:
+    """Function that times another function, that can be passed in
+    through the func argument. Returns an Info object that has the
+    method .show(), in order to display the information.
+    
+    :param args: A list of the arguments to be passed in to the
+    function to be timed. Empty be default.
+    
+    :param kwargs: A dictionary of the keyword arguments to be
+    passed in to the function to be timed. Empty be default.
+    
+    :param maxrepeats: The maximum number of times a chunk of
+    code can be repeated before it stops being timed. Can be
+    set to None for no limit. This is useful for when the
+    timing itself starts to take up a tangible amount of time, and
+    can negate this effect."""
     alltimesvar = "dicttimes"
     allcountsvar = "dictcounts"
     allintervaledvar = "dictintervalled"
@@ -471,76 +555,3 @@ def getIndentation(line):
         return " "*line.index(line.lstrip()[0])
     except:
         return ""
-
-def factorial(a, b, extraadd = True):
-    import random
-    t = 1
-    time.sleep(0.05)
-    time.sleep(1/20)
-    """asdf
-    asdf
-    asdf # 12
-    fdsa"""
-    try:
-        x = 1 # asdf1
-    except:
-        y = 1
-    #asdf
-    for i in range(1, a*b):
-
-        t *= i
-        x = 0
-        y = 0
-        if extraadd:
-            for i in range(100000):
-
-                y += i
-
-                if i < 500:
-                    x += i
-                    x += random.randint(1, 100)
-    return t
-
-def smallFunction(x):
-    return x
-
-def incrementalTime():
-    time.sleep(1) # Hmmm
-    time.sleep(2)
-    time.sleep(3)
-    time.sleep(4)
-    time.sleep(5)
-    time.sleep(6)
-    time.sleep(7)
-    time.sleep(8)
-    time.sleep(9)
-    time.sleep(10)
-    for i in range(1):
-        time.sleep(0.1)
-        time.sleep(0.2)
-        time.sleep(0.3)
-        time.sleep(0.4)
-        time.sleep(0.5)
-        time.sleep(0.6)
-        time.sleep(0.7)
-        time.sleep(0.8)
-        time.sleep(0.9)
-        time.sleep(1)
-        for j in range(1):
-            time.sleep(0.01)
-            time.sleep(0.02)
-            time.sleep(0.03)
-            time.sleep(0.04)
-            time.sleep(0.05)
-            time.sleep(0.06)
-            time.sleep(0.07)
-            time.sleep(0.08)
-            time.sleep(0.09)
-            time.sleep(0.1)
-
-#deepTimeit(deepTimeit, args=[deepTimeit], kwargs={"args":[factorial], "kwargs":{"args":[5, 5]}}).show(backgroundcolour=Colour(255, 0, 255), textcolour=Colour(0, 0, 255), colourrange=((128, 128, 0), (128, 128, 128), (128, 128, 255)))
-#deepTimeit(deepTimeit, args=[factorial], kwargs={"args":[1, 5]}).show()
-deepTimeit(factorial, args=[5, 5]).show()
-#deepTimeit(smallFunction, args=[5]).show()
-#deepTimeit(__import__("random")._test).show()
-#deepTimeit(incrementalTime).show()
