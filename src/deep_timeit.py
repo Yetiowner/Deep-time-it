@@ -404,8 +404,7 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> In
                 if lineindex == i_0tocheck:
                     starttimerstoadd.append(timerindex)
             for start in starttimerstoadd:
-                newlines.append(getIndentation(line)+f"if {allcountsvar}[{start}] < {maxrepeats}:")
-                newlines.append(getIndentation(line)+f"    {linetimevar}{start} = time.time()")
+                newlines.append(getIndentation(line)+f"{linetimevar}{start} = time.time()")
             newlines.append(line)
             endtimerstoadd = []
             for timerindex, i in enumerate(timedChunksIndices):
@@ -416,9 +415,8 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> In
                     endtimerstoadd.append([timerindex, getIndentation(lines[i_0tocheck])])
             endtimerstoadd.sort(reverse=True, key=lambda x: x[0])
             for end, ind in endtimerstoadd:
-                newlines.append(ind+f"if {allcountsvar}[{end}] < {maxrepeats}:")
-                newlines.append(ind+f"    {alltimesvar}[{end}] += time.time()-{linetimevar}{end}")
-                newlines.append(ind+f"    {allcountsvar}[{end}] += 1")
+                newlines.append(ind+f"{alltimesvar}[{end}] += time.time()-{linetimevar}{end}")
+                newlines.append(ind+f"{allcountsvar}[{end}] += 1")
         
         for newlineindex, newline in enumerate(newlines):
             if newline.lstrip().startswith("return"):
@@ -476,7 +474,9 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> In
     alltimes.append(Time([-1], len(oldlines), totaltime, "", 1, getIndentation(oldlines[0])))
     for index, timex in enumerate(times):
         alltimes.append(Time(timedChunksIndices[timex][0], timedChunksIndices[timex][1], times[timex], getIndentation(oldlines[firstifint(timedChunksIndices[timex][0])]), counts[index], None if firstifint(timedChunksIndices[timex][0]) == timedChunksIndices[timex][1] else getIndentation(oldlines[firstifint(timedChunksIndices[timex][0])+1])))
-    
+
+    alltimes = subtractChildrenTimingTimes(alltimes, counts)
+
     removedTimes = []
     for chunk in removedChunks:
         removedTimes.append(Time(chunk[0], chunk[1], None, getIndentation(oldlines[firstifint(chunk[0])]), MaxSize(maxrepeats), None if firstifint(chunk[0]) == chunk[1] else getIndentation(oldlines[firstifint(chunk[0])+1])))
@@ -558,3 +558,68 @@ def getIndentation(line):
         return " "*line.index(line.lstrip()[0])
     except:
         return ""
+
+def getTimeOfTimeFunc(count, mode="self"):
+    if mode == "self":
+        time1 = time.time()
+        for i in range(count):
+            x = time.time()
+        t2 = time.time()-time1
+        return t2
+    elif mode == "child":
+        dicttimes = [0]
+        dictcounts = [0]
+        time1 = time.time()
+
+        for i in range(count):
+            linetime6 = time.time()
+            x = 1
+            dicttimes[0] += time.time()-linetime6
+            dictcounts[0] += 1
+
+        t2 = time.time()-time1
+        return t2
+
+def subtractChildrenTimingTimes(times, counts):
+    newtimes = []
+    for count in counts:
+        print(count)
+    for time in times:
+        print(time)
+
+def factorial(a, b, extraadd = True):
+    import random
+    t = 1
+    p = '"Hello world!"'
+    q = "'Hello world!'"
+    """asdf
+    asdf
+    asdf ""# 12
+'''
+'''
+    fdsa"""
+    try:
+        x = 1 # asdf1 # funny
+    except:
+        y = 1
+    #asdf
+    for i in range(1, a*b):
+
+        t *= i
+        x = 0
+        y = 0
+        if extraadd:
+            for i in range(100000):
+
+                y += i
+
+                if i < 500:
+                    x += i
+                    x += random.randint(1, 100)
+    return t
+
+time1 = time.time()
+factorial(10, 10)
+t1 = time.time()-time1
+print(t1)
+deepTimeit(factorial, args=[10, 10], maxrepeats=5000000).show()
