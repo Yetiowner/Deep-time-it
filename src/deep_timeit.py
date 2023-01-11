@@ -564,6 +564,7 @@ def getTimeOfTimeFunc(count, mode="self"):
         time1 = time.time()
         for i in range(count):
             x = time.time()
+            x1 = time.time()
         t2 = time.time()-time1
         return t2
     elif mode == "child":
@@ -584,16 +585,20 @@ def subtractChildrenTimingTimes(times: List[Time], counts):
     newtimes = []
     print(counts)
     print(times)
+    largconst = 10000000
+    timeofselfrun = getTimeOfTimeFunc(largconst, mode="self")
+    timeofchildrun = getTimeOfTimeFunc(largconst, mode="child")
     for index, time in enumerate(times):
         print(time)
         children = getChildren(time, times)
         totalruntime = 0
-        totalruntime += getTimeOfTimeFunc(counts[index-1] if index > 0 else 1)
+        totalruntime += timeofselfrun*(counts[index-1] if index > 0 else 1)/largconst
         totalcount = 0
         for child, childindex in children:
             totalcount += counts[childindex-1] if childindex > 0 else 1
 
-        totalruntime += getTimeOfTimeFunc(totalcount, mode="child")
+        totalruntime += timeofchildrun*(totalcount)/largconst
+        print(timeofchildrun, totalcount, largconst)
         time.time = max(time.time-totalruntime, 0)
         newtimes.append(time)
     return newtimes
