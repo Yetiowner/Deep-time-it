@@ -4,7 +4,7 @@ import copy
 import tkinter
 import colorsys
 import matplotlib
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List
 import timeit
 
 
@@ -336,7 +336,7 @@ def simplify(lines):
     return newlines
 
 
-def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> Info:
+def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=None) -> Info:
     """Function that times another function, that can be passed in
     through the func argument. Returns an Info object that has the
     method .show(), in order to display the information.
@@ -349,12 +349,12 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=100000) -> In
     
     :param maxrepeats: The maximum number of times a chunk of
     code can be repeated before it stops being timed. Can be
-    set to None for no limit. This is useful for when the
-    timing itself starts to take up a tangible amount of time, and
-    can negate this effect. Note: if the limit is surpassed, the
+    set to None for no limit. Note: if the limit is surpassed, the
     function will be timed again, this time without timing that
     chunk of code. This is risky if the code has side effects. If
-    set to None, the code never re-attempts timing."""
+    set to None, which it is by default, the code never re-attempts 
+    timing."""
+
     alltimesvar = "dicttimes"
     allcountsvar = "dictcounts"
     allintervaledvar = "dictintervalled"
@@ -580,12 +580,34 @@ def getTimeOfTimeFunc(count, mode="self"):
         t2 = time.time()-time1
         return t2
 
-def subtractChildrenTimingTimes(times, counts):
+def subtractChildrenTimingTimes(times: List[Time], counts):
     newtimes = []
-    for count in counts:
-        print(count)
-    for time in times:
+    print(counts)
+    print(times)
+    for index, time in enumerate(times):
         print(time)
+        children = getChildren(time, times)
+        totalruntime = 0
+        totalruntime += getTimeOfTimeFunc(counts[index-1] if index > 0 else 1)
+        totalcount = 0
+        for child, childindex in children:
+            totalcount += counts[childindex-1] if childindex > 0 else 1
+
+        totalruntime += getTimeOfTimeFunc(totalcount, mode="child")
+        time.time = max(time.time-totalruntime, 0)
+        newtimes.append(time)
+    return newtimes
+
+def getChildren(time, times):
+    tstart = time.start[0]
+    tend = time.end
+    children = []
+    for index1, time1 in enumerate(times):
+        t1start = time1.start[0]
+        t1end = time1.end
+        if t1start > tstart and t1end <= tend:
+            children.append((time1, index1))
+    return children
 
 def factorial(a, b, extraadd = True):
     import random
@@ -622,4 +644,4 @@ time1 = time.time()
 factorial(10, 10)
 t1 = time.time()-time1
 print(t1)
-deepTimeit(factorial, args=[10, 10], maxrepeats=5000000).show()
+deepTimeit(factorial, args=[10, 10]).show()
