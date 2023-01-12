@@ -404,7 +404,7 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=None) -> Info
                 if lineindex == i_0tocheck:
                     starttimerstoadd.append(timerindex)
             for start in starttimerstoadd:
-                newlines.append(getIndentation(line)+f"{linetimevar}{start} = time.time()")
+                newlines.append(getIndentation(line)+f"{linetimevar}{start} = time.perf_counter()")
             newlines.append(line)
             endtimerstoadd = []
             for timerindex, i in enumerate(timedChunksIndices):
@@ -415,7 +415,7 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=None) -> Info
                     endtimerstoadd.append([timerindex, getIndentation(lines[i_0tocheck])])
             endtimerstoadd.sort(reverse=True, key=lambda x: x[0])
             for end, ind in endtimerstoadd:
-                newlines.append(ind+f"{alltimesvar}[{end}] += time.time()-{linetimevar}{end}")
+                newlines.append(ind+f"{alltimesvar}[{end}] += time.perf_counter()-{linetimevar}{end}")
                 newlines.append(ind+f"{allcountsvar}[{end}] += 1")
         
         for newlineindex, newline in enumerate(newlines):
@@ -443,7 +443,7 @@ def deepTimeit(func, args=[], kwargs={}, maxrepeats: Optional[int]=None) -> Info
             print(strtoexec)
             raise SyntaxError
         funcname = func.__name__
-        exec(f"totaltime = time.time()\nreturnval = {funcname}(*args, **kwargs)\ntotaltime = time.time()-totaltime", globals(), localcopy)
+        exec(f"totaltime = time.perf_counter()\nreturnval = {funcname}(*args, **kwargs)\ntotaltime = time.perf_counter()-totaltime", globals(), localcopy)
         results = localcopy["returnval"]
         totaltime = localcopy["totaltime"]
         try:
@@ -561,35 +561,33 @@ def getIndentation(line):
 
 def getTimeOfTimeFunc(count, mode="self"):
     if mode == "self":
-        time1 = time.time()
+        time1 = time.perf_counter()
         for i in range(count):
-            x = time.time()
-            x1 = time.time()
-        t2 = time.time()-time1
+            x = time.perf_counter()
+        t2 = time.perf_counter()-time1
         return t2
     elif mode == "child":
         dicttimes = [0]
         dictcounts = [0]
-        time1 = time.time()
+        time1 = time.perf_counter()
 
         for i in range(count):
-            linetime6 = time.time()
-            x = 1
-            dicttimes[0] += time.time()-linetime6
+            linetime6 = time.perf_counter()
+            dicttimes[0] += time.perf_counter()-linetime6
             dictcounts[0] += 1
 
-        t2 = time.time()-time1
+        t2 = time.perf_counter()-time1
         return t2
 
 def subtractChildrenTimingTimes(times: List[Time], counts):
     newtimes = []
-    print(counts)
-    print(times)
+    #print(counts)
+    #print(times)
     largconst = 10000000
     timeofselfrun = getTimeOfTimeFunc(largconst, mode="self")
     timeofchildrun = getTimeOfTimeFunc(largconst, mode="child")
     for index, time in enumerate(times):
-        print(time)
+        #print(time)
         children = getChildren(time, times)
         totalruntime = 0
         totalruntime += timeofselfrun*(counts[index-1] if index > 0 else 1)/largconst
@@ -598,7 +596,7 @@ def subtractChildrenTimingTimes(times: List[Time], counts):
             totalcount += counts[childindex-1] if childindex > 0 else 1
 
         totalruntime += timeofchildrun*(totalcount)/largconst
-        print(timeofchildrun, totalcount, largconst)
+        #print(timeofchildrun, totalcount, largconst)
         time.time = max(time.time-totalruntime, 0)
         newtimes.append(time)
     return newtimes
@@ -645,8 +643,8 @@ def factorial(a, b, extraadd = True):
                     x += random.randint(1, 100)
     return t
 
-time1 = time.time()
+"""time1 = time.perf_counter()
 factorial(10, 10)
-t1 = time.time()-time1
+t1 = time.perf_counter()-time1
 print(t1)
-deepTimeit(factorial, args=[10, 10]).show()
+deepTimeit(factorial, args=[10, 10]).show()"""
