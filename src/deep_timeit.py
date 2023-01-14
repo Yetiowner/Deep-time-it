@@ -755,7 +755,7 @@ def subtractChildrenTimingTimes(times: List[Time], counts):
     newtimes = []
     #print(counts)
     #print(times)
-    largconst = 10000000
+    largconst = 1000000
     timeofselfrun = getTimeOfTimeFunc(largconst, mode="self")
     timeofchildrun = getTimeOfTimeFunc(largconst, mode="child")
     for index, time in enumerate(times):
